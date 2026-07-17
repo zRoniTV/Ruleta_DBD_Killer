@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dead by Daylight - Killers Roulette</title>
+    <style>
+        :root {
+            --dbd-red: #ff3a1d;
+            --dbd-red-glow: rgba(255, 58, 29, 0.6);
+            --dbd-dark: #050505;
+            --dbd-gray: #121212;
+            --dbd-border: #3a100b;
+        }
+
+        body {
+            background-color: var(--dbd-dark);
+            color: #ffffff;
+            font-family: 'Cinzel', 'Georgia', serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- DECORACIÓN DE FONDO --- */
+        .background-decor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: 
+                radial-gradient(circle at center, rgba(139, 0, 0, 0.35) 0%, rgba(20, 4, 4, 0.8) 50%, #030303 100%),
+                url('https://www.transparenttextures.com/patterns/dark-matter.png');
+            animation: pulseAura 8s ease-in-out infinite alternate;
+        }
+
+        .entity-claws {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            background-image: 
+                radial-gradient(circle at top left, transparent 70%, rgba(0,0,0,0.95) 100%),
+                radial-gradient(circle at bottom right, transparent 70%, rgba(0,0,0,0.95) 100%);
+            opacity: 0.95;
+        }
+
+        .entity-claw-graphics {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0.25;
+            background-image: url('https://images.unsplash.com/photo-1509248961158-e54f6934749c?q=80&w=1000&auto=format&fit=crop'); 
+            background-size: cover;
+            background-position: center;
+            filter: contrast(200%) brightness(20%) grayscale(100%);
+            mix-blend-mode: multiply;
+        }
+
+        .fog {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            background: url('https://raw.githubusercontent.com/klevron/threejs-fog/master/assets/fog.png') repeat-x;
+            background-size: contain;
+            opacity: 0.15;
+            z-index: 1;
+            animation: moveFog 45s linear infinite;
+            pointer-events: none;
+        }
+
+        #embersContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        #bloodCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .roulette-wrapper {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            color: #fff;
+            text-shadow: 0 0 15px var(--dbd-red), 0 0 30px rgba(0, 0, 0, 0.9);
+            margin: 0 0 5px 0;
+            border-bottom: 3px double var(--dbd-red);
+            padding-bottom: 12px;
+        }
+
+        .roulette-container {
+            background-color: rgba(14, 14, 14, 0.93);
+            border: 2px solid var(--dbd-border);
+            border-radius: 6px;
+            padding: 30px;
+            box-shadow: 
+                0 30px 70px rgba(0, 0, 0, 0.95), 
+                inset 0 0 30px rgba(255, 58, 29, 0.05);
+            width: 410px;
+            backdrop-filter: blur(8px);
+        }
+
+        .display-screen {
+            background-color: #030303;
+            border: 1px solid #1f1f1f;
+            border-bottom: 4px solid var(--dbd-red);
+            border-radius: 4px;
+            height: 320px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.95);
+        }
+
+        .image-container {
+            width: 100%;
+            height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* CONTORNO ESTILIZADO CON LUZ PARA LAS IMÁGENES */
+        .killer-img {
+            max-width: 90%;
+            max-height: 200px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 8px var(--dbd-red)) drop-shadow(0 12px 20px rgba(0, 0, 0, 0.95));
+            border: 2px dashed rgba(255, 58, 29, 0.4);
+            border-radius: 6px;
+            padding: 4px;
+            background-color: rgba(5, 5, 5, 0.5);
+            z-index: 2;
+        }
+
+        .fallback-avatar {
+            position: absolute;
+            width: 110px;
+            height: 110px;
+            background: radial-gradient(circle, #400 0%, #100 100%);
+            border: 2px solid var(--dbd-red);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: var(--dbd-red);
+            box-shadow: 0 0 25px var(--dbd-red-glow);
+            text-transform: uppercase;
+            z-index: 1;
+        }
+
+        .spinning .killer-img {
+            animation: shake 0.08s infinite alternate;
+            filter: blur(1px) brightness(1.3) drop-shadow(0 0 15px var(--dbd-red));
+        }
+
+        .killer-info {
+            margin-top: 15px;
+            text-align: center;
+            z-index: 2;
+            width: 100%;
+        }
+
+        .killer-name {
+            font-size: 1.3rem;
+            color: #ffffff;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .killer-real-name {
+            font-size: 0.8rem;
+            color: #999999;
+            margin: 5px 0 0 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .spin-btn {
+            background: linear-gradient(180deg, #2b0b07 0%, #0d0201 100%);
+            border: 1px solid var(--dbd-red);
+            color: #fff;
+            padding: 18px;
+            font-size: 1.15rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        .spin-btn:hover:not(:disabled) {
+            background: var(--dbd-red);
+            box-shadow: 0 0 25px var(--dbd-red-glow);
+            color: #000;
+        }
+
+        .spin-btn:disabled {
+            border-color: #222;
+            color: #444;
+            background: #080808;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Contenedor de Controles de Carga */
+        #setupControls {
+            margin-top: 18px;
+            display: block; 
+        }
+
+        .drop-zone {
+            border: 1px dashed #55201a;
+            padding: 18px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #aaa;
+            background: #080808;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .drop-zone:hover {
+            border-color: var(--dbd-red);
+            color: #fff;
+            background: #0d0504;
+        }
+
+        .reset-images-btn {
+            background: transparent;
+            border: 1px solid #33100c;
+            color: #666;
+            font-size: 0.75rem;
+            padding: 6px 12px;
+            margin-top: 12px;
+            cursor: pointer;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+        .reset-images-btn:hover {
+            border-color: var(--dbd-red);
+            color: var(--dbd-red);
+            background: rgba(255, 58, 29, 0.05);
+        }
+
+        /* --- ANIMACIONES --- */
+        @keyframes moveFog {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        @keyframes pulseAura {
+            0% { opacity: 0.85; }
+            100% { opacity: 1; filter: saturate(1.2); }
+        }
+
+        @keyframes shake {
+            0% { transform: translate(2px, 1px) rotate(0deg); }
+            100% { transform: translate(-2px, -1px) rotate(-0.5deg); }
+        }
+
+        .ember {
+            position: absolute;
+            bottom: -10px;
+            background: linear-gradient(to top, #ff3a1d, #ffae19);
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+            animation: riseUp linear infinite;
+            filter: blur(1px);
+            box-shadow: 0 0 8px #ff5100, 0 0 15px #ffae19;
+        }
+
+        @keyframes riseUp {
+            0% {
+                transform: translateY(0) translateX(0) scale(0.5);
+                opacity: 0;
+            }
+            10% { opacity: 0.8; }
+            90% { opacity: 0.6; }
+            100% {
+                transform: translateY(-105vh) translateX(var(--drift)) scale(1.2);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="background-decor"></div>
+    <div class="entity-claw-graphics"></div>
+    <div class="entity-claws"></div>
+    <div class="fog"></div>
+    <div id="embersContainer"></div>
+
+    <canvas id="bloodCanvas"></canvas>
+
+    <div class="roulette-wrapper">
+        <h1>Killers Roulette</h1>
+
+        <div class="roulette-container">
+            <div class="display-screen" id="screen">
+                <div class="image-container">
+                    <img src="" alt="" class="killer-img" id="killerImage" style="display:none;">
+                    <div class="fallback-avatar" id="fallbackAvatar">?</div>
+                </div>
+                <div class="killer-info">
+                    <h2 class="killer-name" id="killerName">¿PREPARADO?</h2>
+                    <p class="killer-real-name" id="killerRealName">Suelta tus 43 imágenes abajo primero</p>
+                </div>
+            </div>
+
+            <button class="spin-btn" id="spinBtn" onclick="girarRuleta()">Iniciar Caza (43)</button>
+
+            <!-- Controles de Configuración -->
+            <div id="setupControls">
+                <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+                    <span id="dropText">📥 Haz clic o arrastra aquí tus 43 imágenes juntas</span>
+                    <input type="file" id="fileInput" multiple accept="image/*" style="display:none;" onchange="cargarImagenesDesdeBoton(this)">
+                </div>
+                <button class="reset-images-btn" onclick="reiniciarImagenes()">⚠️ Limpiar e importar de nuevo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const masterKillers = [
+            { name: "El Trampero (The Trapper)", real: "Evan MacMillan", id: 0 },
+            { name: "El Espectro (The Wraith)", real: "Philip Ojomo", id: 1 },
+            { name: "El Pueblerino (The Hillbilly)", real: "Max Thompson Jr.", id: 2 },
+            { name: "La Enfermera (The Nurse)", real: "Sally Smithson", id: 3 },
+            { name: "La Sombra (The Shape)", real: "Michael Myers", id: 4 },
+            { name: "La Bruja (The Hag)", real: "Lisa Sherwood", id: 5 },
+            { name: "El Doctor (The Doctor)", real: "Herman Carter", id: 6 },
+            { name: "El Caníbal (The Cannibal)", real: "Bubba Sawyer", id: 7 },
+            { name: "La Cazadora (The Huntress)", real: "Anna", id: 8 },
+            { name: "La Pesadilla (The Nightmare)", real: "Freddy Krueger", id: 9 },
+            { name: "La Cerda (The Pig)", real: "Amanda Young", id: 10 },
+            { name: "El Payaso (The Clown)", real: "Kenneth Chase", id: 11 },
+            { name: "El Espíritu (The Spirit)", real: "Rin Yamaoka", id: 12 },
+            { name: "La Legión (The Legion)", real: "Frank Morrison, Julie Kostenko, Susie o Joey", id: 13 },
+            { name: "La Plaga (The Plague)", real: "Adiris", id: 14 },
+            { name: "Ghost Face", real: "Danny Johnson (alias Jed Olsen)", id: 15 },
+            { name: "El Demogorgon (The Demogorgon)", real: "No tiene nombre real", id: 16 },
+            { name: "El Oni (The Oni)", real: "Kazan Yamaoka", id: 17 },
+            { name: "El Arponero (The Deathslinger)", real: "Caleb Quinn", id: 18 },
+            { name: "El Ejecutor (The Executioner)", real: "Pyramid Head", id: 19 },
+            { name: "El Deterioro (The Blight)", real: "Talbot Grimes", id: 20 },
+            { name: "Los Gemelos (The Twins)", real: "Charlotte y Victor Deshayes", id: 21 },
+            { name: "El Traicionero (The Trickster)", real: "Ji-Woon Hak", id: 22 },
+            { name: "El Némesis (The Nemesis)", real: "No tiene nombre real", id: 23 },
+            { name: "El Cenobita (The Cenobite)", real: "Elliot Spencer (Pinhead)", id: 24 },
+            { name: "La Artista (The Artist)", real: "Carmina Mora", id: 25 },
+            { name: "La Onryō (The Onryō)", real: "Sadako Yamamura", id: 26 },
+            { name: "La Draga (The Dredge)", real: "No tiene nombre real", id: 27 },
+            { name: "El Mente Maestra (The Mastermind)", real: "Albert Wesker", id: 28 },
+            { name: "El Caballero (The Knight)", real: "Tarhos Kovács", id: 29 },
+            { name: "La Comerciante de Calaveras (The Skull Merchant)", real: "Adriana Imai", id: 30 },
+            { name: "La Singularidad (The Singularity)", real: "HUX-A7-13", id: 31 },
+            { name: "El Xenomorfo (The Xenomorph)", real: "No tiene nombre real", id: 32 },
+            { name: "El Muñeco Maldito (The Good Guy)", real: "Charles Lee Ray (Chucky)", id: 33 },
+            { name: "Lo Desconocido (The Unknown)", real: "Desconocido", id: 34 },
+            { name: "El Liche (The Lich)", real: "Vecna", id: 35 },
+            { name: "El Señor Oscuro (The Dark Lord)", real: "Drácula", id: 36 },
+            { name: "La Domadora (The Houndmaster)", real: "Portia Maye", id: 37 },
+            { name: "El Ghoul (The Ghoul)", real: "Ken Kaneki", id: 38 },
+            { name: "El Animatrónico (The Animatronic)", real: "William Afton (Springtrap)", id: 39 },
+            { name: "La Krasue (The Krasue)", real: "Suriya", id: 40 },
+            { name: "El Primero (The First)", real: "Henry Creel", id: 41 },
+            { name: "El Asesino (The Slasher)", real: "Jason Voorhees", id: 42 }
+        ];
+
+        let availableKillers = [...masterKillers];
+        let dbdImages = {};
+
+        try {
+            dbdImages = JSON.parse(localStorage.getItem('dbd_roulette_images')) || {};
+        } catch (e) {
+            console.error("Error al leer localStorage", e);
+            dbdImages = {};
+        }
+
+        function createEmbers() {
+            const container = document.getElementById('embersContainer');
+            const emberCount = 35;
+            for (let i = 0; i < emberCount; i++) {
+                setTimeout(() => {
+                    const ember = document.createElement('div');
+                    ember.classList.add('ember');
+                    const size = Math.random() * 5 + 2;
+                    const leftPos = Math.random() * 100;
+                    const duration = Math.random() * 6 + 4;
+                    const delay = Math.random() * 5;
+                    const drift = (Math.random() - 0.5) * 180;
+                    ember.style.width = `${size}px`;
+                    ember.style.height = `${size}px`;
+                    ember.style.left = `${leftPos}%`;
+                    ember.style.animationDuration = `${duration}s`;
+                    ember.style.animationDelay = `${delay}s`;
+                    ember.style.setProperty('--drift', `${drift}px`);
+                    container.appendChild(ember);
+                }, i * 250);
+            }
+        }
+
+        function verificarEstadoImagenes() {
+            const count = Object.keys(dbdImages).length;
+            const setupBlock = document.getElementById('setupControls');
+            if (count >= 43) {
+                setupBlock.setAttribute('style', 'display: none !important;');
+                mostrarAsesino(masterKillers[0]);
+            } else {
+                setupBlock.style.display = 'block';
+                if (count > 0) {
+                    document.getElementById('dropText').innerText = `⚠️ Incompleto: ${count}/43 cargadas. Agrega todas juntas.`;
+                }
+            }
+        }
+
+        function actualizarBotonContador() {
+            document.getElementById('spinBtn').innerText = `Iniciar Caza (${availableKillers.length})`;
+        }
+
+        function reiniciarImagenes() {
+            if (confirm("¿Seguro que quieres borrar todas las imágenes guardadas de la ruleta?")) {
+                localStorage.removeItem('dbd_roulette_images');
+                dbdImages = {};
+                location.reload();
+            }
+        }
+
+        function comprimirYGuardarImagen(file, index, totalFiles) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const maxDim = 280;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > height) {
+                        if (width > maxDim) { height = Math.round((height * maxDim) / width); width = maxDim; }
+                    } else {
+                        if (height > maxDim) { width = Math.round((width * maxDim) / height); height = maxDim; }
+                    }
+                    canvas.width = width; canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
+                    dbdImages[index] = compressedBase64;
+                    const cargados = Object.keys(dbdImages).length;
+                    document.getElementById('dropText').innerText = `⚡ Comprimiendo: ${cargados} de ${totalFiles}...`;
+                    if (cargados === totalFiles) {
+                        try {
+                            localStorage.setItem('dbd_roulette_images', JSON.stringify(dbdImages));
+                            document.getElementById('dropText').innerText = `✅ ¡Guardado permanente con éxito!`;
+                            document.getElementById('setupControls').setAttribute('style', 'display: none !important;');
+                            setTimeout(() => { location.reload(); }, 600);
+                        } catch (e) {
+                            alert("Error crítico de almacenamiento.");
+                        }
+                    }
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function procesarArchivos(files) {
+            const listaArchivos = Array.from(files).slice(0, 43);
+            if (listaArchivos.length < 43) {
+                alert(`Has seleccionado ${listaArchivos.length} imágenes. Deben ser exactamente 43 imágenes juntas.`);
+                return;
+            }
+            dbdImages = {};
+            document.getElementById('dropText').innerText = "⚡ Optimizando espacio...";
+            listaArchivos.forEach((file, index) => { comprimirYGuardarImagen(file, index, listaArchivos.length); });
+        }
+
+        // --- MANEJO DE SELECCIÓN DE ARCHIVOS ---
+        function cargarImagenesDesdeBoton(input) { if (input.files.length > 0) procesarArchivos(input.files); }
+
+        const dropZone = document.querySelector('.drop-zone');
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault(); dropZone.style.borderColor = "var(--dbd-red)"; dropZone.style.background = "#180604";
+            }, false);
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault(); dropZone.style.borderColor = "#55201a"; dropZone.style.background = "#080808";
+            }, false);
+        });
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files; if (files.length > 0) procesarArchivos(files);
+        });
+
+        // --- SINTETIZADOR DE AUDIO AVANZADO (MÚSICA Y LOGROS) ---
+        let audioCtx = null;
+        let tensionOsc = null;
+        let tensionGain = null;
+
+        function startMusic() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            // Oscilador de base sintética (Onda de sierra ruda para ambientación oscura)
+            tensionOsc = audioCtx.createOscillator();
+            tensionGain = audioCtx.createGain();
+            tensionOsc.type = 'sawtooth';
+            tensionOsc.frequency.setValueAtTime(55, audioCtx.currentTime); 
+            tensionGain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(130, audioCtx.currentTime);
+
+            tensionOsc.connect(filter);
+            filter.connect(tensionGain);
+            tensionGain.connect(audioCtx.destination);
+            tensionOsc.start();
+
+            // NUEVA MÚSICA DE GIRO: Escalada progresiva y drástica de frecuencias para simular persecución
+            let startTime = audioCtx.currentTime;
+            tensionOsc.frequency.linearRampToValueAtTime(160, startTime + 2.4);
+        }
+
+        function playClickSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(85, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function stopMusic() {
+            if (tensionOsc) { try { tensionOsc.stop(); tensionOsc.disconnect(); } catch(e){} tensionOsc = null; }
+            if (audioCtx) {
+                // Golpe rítmico pesado al frenar la ruleta
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.type = 'sine';
+                o.frequency.setValueAtTime(58, audioCtx.currentTime);
+                g.gain.setValueAtTime(0.45, audioCtx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start(); o.stop(audioCtx.currentTime + 0.4);
+            }
+        }
+
+        // CANCIÓN ÉPICA DE LOGRO COMPLETADO (Fanfarria armónica al llegar a 0 killers)
+        function playCompletadoSound() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            // Acorde épico ascendente en progresión brillante
+            const notas = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50]; 
+            const ahora = audioCtx.currentTime;
+
+            notas.forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, ahora + (idx * 0.09));
+                
+                gain.gain.setValueAtTime(0.0, ahora + (idx * 0.09));
+                gain.gain.linearRampToValueAtTime(0.25, ahora + (idx * 0.09) + 0.04);
+                gain.gain.exponentialRampToValueAtTime(0.001, ahora + (idx * 0.09) + 0.65);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start(ahora + (idx * 0.09));
+                osc.stop(ahora + (idx * 0.09) + 0.7);
+            });
+        }
+
+        function hablarComerciante() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const speech = new SpeechSynthesisUtterance("La mejor killer");
+                speech.lang = 'es-MX'; speech.pitch = 0.1; speech.rate = 0.55;
+                window.speechSynthesis.speak(speech);
+            }
+        }
+
+        // --- EFECTO SANGRE ---
+        const canvas = document.getElementById('bloodCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x; this.y = y;
+                this.size = Math.random() * 8 + 4;
+                this.speedX = (Math.random() - 0.5) * 26;
+                this.speedY = (Math.random() - 0.5) * 26 - 5;
+                this.gravity = 0.45; this.alpha = 1;
+            }
+            update() { this.speedY += this.gravity; this.x += this.speedX; this.y += this.speedY; this.alpha -= 0.012; }
+            draw() {
+                ctx.save(); ctx.globalAlpha = this.alpha; ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${140 + Math.random() * 60}, 0, 0, ${this.alpha})`;
+                ctx.fill(); ctx.restore();
+            }
+        }
+
+        function splash() {
+            const rect = document.getElementById('screen').getBoundingClientRect();
+            const cx = rect.left + rect.width / 2; const cy = rect.top + rect.height / 2;
+            for (let i = 0; i < 100; i++) particles.push(new Particle(cx, cy));
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            verificarEstadoImagenes();
+            actualizarBotonContador();
+            createEmbers();
+            function run() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles = particles.filter(p => p.alpha > 0);
+                particles.forEach(p => { p.update(); p.draw(); });
+                requestAnimationFrame(run);
+            }
+            run();
+        });
+
+        function mostrarAsesino(killer) {
+            const img = document.getElementById('killerImage');
+            const fallback = document.getElementById('fallbackAvatar');
+            document.getElementById('killerName').innerText = killer.name.toUpperCase();
+            document.getElementById('killerRealName').innerText = killer.real;
+
+            if (dbdImages[killer.id]) {
+                img.src = dbdImages[killer.id];
+                img.style.display = 'block';
+                fallback.style.display = 'none';
+            } else {
+                img.style.display = 'none';
+                fallback.innerText = killer.name.charAt(0);
+                fallback.style.display = 'flex';
+            }
+        }
+
+        // --- SISTEMA DE GIRO ---
+        function girarRuleta() {
+            // SI LA LISTA LLEGA A CERO, SE REINICIA AUTOMÁTICAMENTE AL VOLVER A DAR CLIC
+            if (availableKillers.length === 0) {
+                availableKillers = [...masterKillers];
+                actualizarBotonContador();
+            }
+
+            const screen = document.getElementById('screen');
+            const btn = document.getElementById('spinBtn');
+            btn.disabled = true;
+            screen.classList.add('spinning');
+            
+            startMusic();
+
+            let ticks = 40;
+            let current = 0;
+            let currentSpeed = 30;
+
+            function step() {
+                const randomK = masterKillers[Math.floor(Math.random() * masterKillers.length)];
+                mostrarAsesino(randomK);
+                playClickSound(); 
+                current++;
+
+                if (current < ticks) {
+                    if (current > 25) currentSpeed += 20;
+                    if (current > 34) currentSpeed += 65;
+                    setTimeout(step, currentSpeed);
+                } else {
+                    screen.classList.remove('spinning');
+                    stopMusic();
+
+                    const winnerIndex = Math.floor(Math.random() * availableKillers.length);
+                    const winner = availableKillers[winnerIndex];
+                    
+                    availableKillers.splice(winnerIndex, 1);
+
+                    mostrarAsesino(winner);
+                    splash();
+                    actualizarBotonContador();
+
+                    if (winner.name.includes("Comerciante de Calaveras")) hablarComerciante();
+
+                    // ACCIÓN CUANDO SE COMPLETAN TODOS (CONTADOR LLEGA A 0)
+                    if (availableKillers.length === 0) {
+                        btn.innerText = "Reiniciar Lista Completa";
+                        // Suena la música de logro épico justo tras revelarse el último
+                        setTimeout(() => {
+                            playCompletadoSound();
+                        }, 100);
+                    }
+
+                    btn.disabled = false;
+                }
+            }
+            setTimeout(step, currentSpeed);
+        }
+    </script>
+</body>
+</html>
